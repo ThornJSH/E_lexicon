@@ -866,29 +866,19 @@ tr:last-child td {
 
 /* Header Action & Badges */
 .app-header {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .header-actions {
-  position: absolute;
-  top: 1.5rem;
-  right: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
+  margin-top: 0.5rem;
   flex-wrap: nowrap;
-}
-
-@media (max-width: 1024px) {
-  .header-actions {
-    position: static;
-    justify-content: center;
-    margin-top: 1.25rem;
-    width: 100%;
-  }
 }
 
 .mode-badge {
@@ -897,7 +887,7 @@ tr:last-child td {
   gap: 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.3rem 0.75rem;
+  padding: 0.35rem 0.8rem;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: var(--transition-smooth);
@@ -919,20 +909,22 @@ tr:last-child td {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--card-border);
   color: var(--text-muted);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
   transition: var(--transition-smooth);
 }
 
 .btn-settings:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-main);
-  transform: rotate(45deg);
+  border-color: var(--card-border-glow);
+  transform: translateY(-1px);
 }
 
 /* API Settings Slide-In Panel */
