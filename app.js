@@ -321,9 +321,10 @@ export async function analyzeSentiment(text) {
   // localStorage 우선, 없으면 소스 코드 상수 사용
   const apiKey = localStorage.getItem('gemini_api_key') || DEFAULT_API_KEY;
   const modelName = localStorage.getItem('gemini_model') || DEFAULT_MODEL;
+  const useApi = localStorage.getItem('gemini_use_api') !== 'false';
 
-  // API 키가 전혀 없으면 로컬 폴백
-  if (!apiKey) {
+  // API 키가 없거나 AI 활성화가 꺼져 있으면 로컬 분석 실행
+  if (!apiKey || !useApi) {
     const localResult = analyzeLocalSentiment(text);
     return {
       isLlm: false,

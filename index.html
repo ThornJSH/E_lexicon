@@ -353,13 +353,17 @@
       // Load saved settings on init
       const savedApiKey = localStorage.getItem('gemini_api_key') || '';
       const savedModel = localStorage.getItem('gemini_model') || 'gemini-2.5-flash-lite';
+      const savedUseApi = localStorage.getItem('gemini_use_api') !== 'false';
 
       settingsApiKey.value = savedApiKey;
       settingsModel.value = savedModel;
-      updateModeIndicator(savedApiKey, savedModel);
+      const settingsUseApi = document.getElementById('settings-use-api');
+      settingsUseApi.checked = savedUseApi;
 
-      function updateModeIndicator(key, model) {
-        if (key) {
+      updateModeIndicator(savedApiKey, savedModel, savedUseApi);
+
+      function updateModeIndicator(key, model, useApi) {
+        if (key && useApi) {
           modeIndicator.className = 'mode-badge gemini';
           modeIndicator.innerHTML = `<i class="fa-solid fa-sparkles"></i> Gemini AI`;
         } else {
@@ -387,6 +391,7 @@
       btnSaveSettings.addEventListener('click', () => {
         const key = settingsApiKey.value.trim();
         const model = settingsModel.value;
+        const useApi = settingsUseApi.checked;
 
         if (key) {
           localStorage.setItem('gemini_api_key', key);
@@ -394,13 +399,14 @@
           localStorage.removeItem('gemini_api_key');
         }
         localStorage.setItem('gemini_model', model);
+        localStorage.setItem('gemini_use_api', useApi ? 'true' : 'false');
 
-        updateModeIndicator(key, model);
+        updateModeIndicator(key, model, useApi);
         alert('설정이 저장되었습니다.');
         closeSettings();
 
         // Dispatch event to app.js to reload engine mode if needed
-        window.dispatchEvent(new CustomEvent('settings-updated', { detail: { key, model } }));
+        window.dispatchEvent(new CustomEvent('settings-updated', { detail: { key, model, useApi } }));
       });
 
       // Test API key
@@ -759,6 +765,15 @@
       <button id="btn-close-settings" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="settings-body">
+      <div class="form-group toggle-group">
+        <label class="switch-container">
+          <span class="switch-label">Gemini AI 모드 활성화</span>
+          <div class="switch-wrapper">
+            <input type="checkbox" id="settings-use-api">
+            <span class="switch-slider"></span>
+          </div>
+        </label>
+      </div>
       <div class="form-group">
         <label for="settings-api-key">Gemini API Key</label>
         <div class="input-with-icon">
