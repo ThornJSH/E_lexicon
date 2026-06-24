@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KnuSentiLex 한국어 문장 감성 분석기</title>
+
+  <!-- Google Fonts & FontAwesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="glass-bg"></div>
+
+  <!-- Kiwi Loading Overlay -->
+  <div id="kiwi-loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner-wrapper">
+        <i class="fa-solid fa-spinner fa-spin loading-spinner"></i>
+      </div>
+      <h2>한국어 형태소 분석기 초기화 중...</h2>
+      <p class="loading-sub">Kiwi WASM 및 언어 모델 데이터를 준비하고 있습니다.</p>
+      <div class="progress-container">
+        <div id="loading-progress-bar" class="progress-bar"></div>
+      </div>
+      <p id="loading-status" class="loading-status">모델 다운로드 대기 중...</p>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <i class="fa-solid fa-face-smile-wink logo-icon"></i>
+        <h1>KnuSentiLex <span>감성 분석기</span></h1>
+      </div>
+      <p class="subtitle">한국어 문장을 분석하여 감정의 색깔과 점수를 확인하세요.</p>
+      <div class="header-actions">
+        <span id="analysis-mode-indicator" class="mode-badge local"><i class="fa-solid fa-microchip"></i> 로컬 분석
+          모드</span>
+        <button id="btn-toggle-settings" class="btn-settings" title="API 설정"><i class="fa-solid fa-gear"></i>
+          설정</button>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="analysis-tab">
+        <i class="fa-solid fa-magnifying-glass-chart"></i> 문장 감성 분석
+      </button>
+      <button class="tab-btn" data-tab="dictionary-tab">
+        <i class="fa-solid fa-book-open"></i> 감성 사전 검색
+      </button>
+    </nav>
+
+    <!-- Tab Contents -->
+    <main class="tab-content-container">
+
+      <!-- 1. Sentiment Analysis Tab -->
+      <section id="analysis-tab" class="tab-pane active">
+        <div class="input-card card">
+          <div class="card-header">
+            <h3><i class="fa-regular fa-keyboard"></i> 분석할 문장 입력</h3>
+            <div class="quick-examples">
+              <span class="example-label">추천 예문:</span>
+              <button class="btn-example pos" data-text="오늘 날씨가 정말 화창하고 행복해서 기분이 날아갈 것 같다!">긍정</button>
+              <button class="btn-example neg" data-text="길을 가다 지갑을 잃어버려서 너무 속상하고 짜증이 난다.">부정</button>
+              <button class="btn-example mix" data-text="공부는 힘들고 지치지만, 끝마치고 나면 정말 뿌듯하고 보람차다.">혼합</button>
+            </div>
+          </div>
+
+          <div class="textarea-wrapper">
+            <textarea id="sentence-input"
+              placeholder="이곳에 감성을 분석하고 싶은 문장을 입력하거나 복사해 붙여넣으세요... (예: 오늘 하루 정말 보람찼다!)"></textarea>
+            <div class="char-counter"><span id="char-count">0</span> 자</div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btn-clear" class="btn-secondary">
+              <i class="fa-solid fa-rotate-left"></i> 초기화
+            </button>
+            <button id="btn-analyze" class="btn-primary">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> 감성 분석하기
+            </button>
+          </div>
+        </div>
+
+        <!-- Analysis Results Dashboard (Hidden by default, shown on analysis) -->
+        <div id="analysis-result-section" class="result-section hidden">
+
+          <!-- Summary Display Card -->
+          <div class="result-summary-grid">
+
+            <!-- Polarity Gauge & Score -->
+            <div class="score-card card">
+              <h3>감성 종합 점수</h3>
+              <div class="gauge-container">
+                <div class="gauge-bar-wrapper">
+                  <div id="gauge-bar" class="gauge-bar"></div>
+                  <div class="gauge-center-line"></div>
+                </div>
+                <div class="gauge-labels">
+                  <span>부정 (-2)</span>
+                  <span>중립 (0)</span>
+                  <span>긍정 (+2)</span>
+                </div>
+              </div>
+              <div class="score-value-display">
+                <span id="score-number" class="score-number">0</span>
+                <span id="score-badge" class="badge">중립</span>
+              </div>
+              <p class="score-desc" id="score-description">문장 내 감성 어휘의 강도와 빈도를 분석한 최종 점수입니다.</p>
+            </div>
+
+            <!-- Stats Chart / Breakdown -->
+            <div class="stats-card card">
+              <h3>감성 어휘 감지 통계</h3>
+              <div class="stats-grid">
+                <div class="stat-box pos">
+                  <div class="stat-icon"><i class="fa-solid fa-face-laugh-beam"></i></div>
+                  <div class="stat-info">
+                    <span class="stat-label">긍정 단어</span>
+                    <span id="stat-pos-count" class="stat-value">0</span>
+                  </div>
+                </div>
+                <div class="stat-box neg">
+                  <div class="stat-icon"><i class="fa-solid fa-face-sad-tear"></i></div>
+                  <div class="stat-info">
+                    <span class="stat-label">부정 단어</span>
+                    <span id="stat-neg-count" class="stat-value">0</span>
+                  </div>
+                </div>
+                <div class="stat-box neu">
+                  <div class="stat-icon"><i class="fa-solid fa-face-meh"></i></div>
+                  <div class="stat-info">
+                    <span class="stat-label">중립 단어</span>
+                    <span id="stat-neu-count" class="stat-value">0</span>
+                  </div>
+                </div>
+                <div class="stat-box total">
+                  <div class="stat-icon"><i class="fa-solid fa-quote-right"></i></div>
+                  <div class="stat-info">
+                    <span class="stat-label">감지 어구</span>
+                    <span id="stat-total-count" class="stat-value">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LLM Analysis Display Card -->
+          <div id="llm-analysis-card" class="llm-card card hidden">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-robot"></i> Gemini AI 문맥 분석 결과</h3>
+              <span class="mode-badge gemini"><i class="fa-solid fa-sparkles"></i> Gemini LLM</span>
+            </div>
+            <div class="llm-result-content">
+              <div class="llm-summary-box">
+                <h4><i class="fa-solid fa-comment-dots"></i> 종합 감성 요약 설명</h4>
+                <p id="llm-summary-text">감성 분석이 완료되면 AI 요약이 여기에 나타납니다.</p>
+              </div>
+              <div class="llm-phrases-box">
+                <h4><i class="fa-solid fa-magnifying-glass-location"></i> 감정 및 문맥적 핵심 구절</h4>
+                <div class="table-wrapper">
+                  <table class="detail-table">
+                    <thead>
+                      <tr>
+                        <th>핵심 구절</th>
+                        <th>감성 점수</th>
+                        <th>문맥 및 판단 사유</th>
+                      </tr>
+                    </thead>
+                    <tbody id="llm-phrases-body">
+                      <!-- Phrases rows will be rendered here dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text Highlighting Display -->
+          <div class="highlight-card card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-highlighter"></i> 감성 어휘 하이라이팅</h3>
+              <span class="tooltip-info"><i class="fa-solid fa-circle-info"></i> 단어에 마우스를 올리면 상세 정보를 볼 수 있습니다.</span>
+            </div>
+            <div class="highlight-container" id="highlighted-viewer">
+              <!-- Rendered content goes here -->
+            </div>
+          </div>
+
+          <!-- Matched Words Detail Table -->
+          <div class="details-card card">
+            <h3><i class="fa-solid fa-list-check"></i> 감지된 감성 단어 상세</h3>
+            <div class="table-wrapper">
+              <table class="detail-table">
+                <thead>
+                  <tr>
+                    <th>단어 (어절)</th>
+                    <th>사전 기준 어근</th>
+                    <th>점수 유형</th>
+                    <th>점수</th>
+                  </tr>
+                </thead>
+                <tbody id="detail-table-body">
+                  <!-- Word detail rows go here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Dictionary Search Tab -->
+      <section id="dictionary-tab" class="tab-pane">
+        <div class="dict-search-card card">
+          <h3><i class="fa-solid fa-book"></i> 사전 어휘 검색</h3>
+          <p class="card-subtitle">KnuSentiLex에 등록된 단어와 어근, 이모티콘의 감성 점수를 직접 검색합니다.</p>
+
+          <div class="search-input-group">
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="dict-search-input" placeholder="검색할 단어 또는 어근을 입력하세요 (예: 행복, 슬픔, ^^)">
+            </div>
+            <button id="btn-search-dict" class="btn-primary">검색</button>
+          </div>
+        </div>
+
+        <!-- Search Results -->
+        <div class="dict-results-card card">
+          <div class="card-header">
+            <h3>검색 결과 <span id="search-result-count" class="count-badge">0</span></h3>
+            <div class="dict-legend">
+              <span class="legend-item pos"><span class="dot"></span>긍정</span>
+              <span class="legend-item neu"><span class="dot"></span>중립</span>
+              <span class="legend-item neg"><span class="dot"></span>부정</span>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="dict-table">
+              <thead>
+                <tr>
+                  <th>단어 / 어구</th>
+                  <th>어근</th>
+                  <th>감성 점수</th>
+                  <th>구분</th>
+                </tr>
+              </thead>
+              <tbody id="dict-table-body">
+                <tr>
+                  <td colspan="4" class="no-data">검색어를 입력하고 검색 버튼을 눌러주세요.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Dictionary Overview Statistics -->
+        <div class="dict-overview-grid">
+          <div class="overview-box card">
+            <h4>전체 어휘 수</h4>
+            <div class="val">14,843</div>
+          </div>
+          <div class="overview-box card">
+            <h4>긍정 어휘</h4>
+            <div class="val text-pos">4,863</div>
+          </div>
+          <div class="overview-box card">
+            <h4>중립 어휘</h4>
+            <div class="val text-neu">154</div>
+          </div>
+          <div class="overview-box card">
+            <h4>부정 어휘</h4>
+            <div class="val text-neg">9,826</div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer with Clear Source Attribution -->
+    <footer class="app-footer">
+      <div class="footer-attribution">
+        <p><i class="fa-solid fa-quote-left"></i> 본 프로그램은 <strong>군산대학교 소프트웨어융합공학과 Data Intelligence Lab</strong>에서 구축한
+          한국어 감성사전 <strong>KnuSentiLex</strong>를 기반으로 분석을 수행합니다.</p>
+        <p class="license-info">사전 및 리소스 출처: <a href="https://github.com/park1200656/KnuSentiLex" target="_blank"
+            rel="noopener noreferrer"><i class="fa-brands fa-github"></i> KnuSentiLex GitHub Repository</a></p>
+      </div>
+      <p class="copyright">&copy; 2026 Sentiment Analyzer. Powered by KNU DILab.</p>
+    </footer>
+  </div>
+
+  <!-- Load Local Data and Application Logic -->
+  <script src="data/senti_data.js"></script>
+  <script src="app.js" type="module"></script>
+
+  <!-- UI Interactions Script -->
+  <script>
+    // Register Kiwi Loading Listeners Immediately (before app.js module executes)
+    window.addEventListener('kiwi-loading-progress', (e) => {
+      const { progress, filename } = e.detail;
+      const progressBar = document.getElementById('loading-progress-bar');
+      const statusText = document.getElementById('loading-status');
+      if (progressBar) progressBar.style.width = `${progress}%`;
+      if (statusText) statusText.textContent = `모델 다운로드 중: ${filename} (${progress}%)`;
+    });
+
+    window.addEventListener('kiwi-loaded', () => {
+      const overlay = document.getElementById('kiwi-loading-overlay');
+      if (overlay) {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 500);
+      }
+      console.log("Kiwi Morphological Sentiment Engine Ready.");
+    });
+
+    window.addEventListener('kiwi-load-error', (e) => {
+      const statusText = document.getElementById('loading-status');
+      if (statusText) {
+        statusText.innerHTML = `<span style="color: var(--color-neg); font-weight: 600;">초기화 실패: ${e.detail.error.message || e.detail.error}</span>`;
+      }
+      const spinner = document.querySelector('.loading-spinner');
+      if (spinner) {
+        spinner.className = 'fa-solid fa-circle-xmark';
+        spinner.style.color = 'var(--color-neg)';
+        spinner.style.background = 'none';
+        spinner.style.webkitTextFillColor = 'var(--color-neg)';
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // 1. API Settings Drawer Toggle & Logic
+      const btnToggleSettings = document.getElementById('btn-toggle-settings');
+      const btnCloseSettings = document.getElementById('btn-close-settings');
+      const settingsPanel = document.getElementById('settings-panel');
+      const settingsOverlay = document.getElementById('settings-overlay');
+      const settingsApiKey = document.getElementById('settings-api-key');
+      const settingsModel = document.getElementById('settings-model');
+      const btnTestApi = document.getElementById('btn-test-api');
+      const btnSaveSettings = document.getElementById('btn-save-settings');
+      const settingsTestResult = document.getElementById('settings-test-result');
+      const modeIndicator = document.getElementById('analysis-mode-indicator');
+
+      // Load saved settings on init
+      const savedApiKey = localStorage.getItem('gemini_api_key') || '';
+      const savedModel = localStorage.getItem('gemini_model') || 'gemini-2.5-flash-lite';
+
+      settingsApiKey.value = savedApiKey;
+      settingsModel.value = savedModel;
+      updateModeIndicator(savedApiKey, savedModel);
+
+      function updateModeIndicator(key, model) {
+        if (key) {
+          modeIndicator.className = 'mode-badge gemini';
+          modeIndicator.innerHTML = `<i class="fa-solid fa-sparkles"></i> Gemini AI 모드 (${model})`;
+        } else {
+          modeIndicator.className = 'mode-badge local';
+          modeIndicator.innerHTML = `<i class="fa-solid fa-microchip"></i> 로컬 분석 모드`;
+        }
+      }
+
+      btnToggleSettings.addEventListener('click', () => {
+        settingsPanel.classList.add('active');
+        settingsOverlay.classList.add('active');
+        settingsTestResult.classList.add('hidden');
+        settingsTestResult.textContent = '';
+      });
+
+      const closeSettings = () => {
+        settingsPanel.classList.remove('active');
+        settingsOverlay.classList.remove('active');
+      };
+
+      btnCloseSettings.addEventListener('click', closeSettings);
+      settingsOverlay.addEventListener('click', closeSettings);
+
+      // Save settings
+      btnSaveSettings.addEventListener('click', () => {
+        const key = settingsApiKey.value.trim();
+        const model = settingsModel.value;
+
+        if (key) {
+          localStorage.setItem('gemini_api_key', key);
+        } else {
+          localStorage.removeItem('gemini_api_key');
+        }
+        localStorage.setItem('gemini_model', model);
+
+        updateModeIndicator(key, model);
+        alert('설정이 저장되었습니다.');
+        closeSettings();
+
+        // Dispatch event to app.js to reload engine mode if needed
+        window.dispatchEvent(new CustomEvent('settings-updated', { detail: { key, model } }));
+      });
+
+      // Test API key
+      btnTestApi.addEventListener('click', async () => {
+        const key = settingsApiKey.value.trim();
+        const model = settingsModel.value;
+
+        if (!key) {
+          showTestResult('API Key를 입력해주세요.', 'error');
+          return;
+        }
+
+        btnTestApi.disabled = true;
+        btnTestApi.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 테스트 중...`;
+        showTestResult('연결 테스트 중...', '');
+        settingsTestResult.className = 'test-result-message'; // clear styles
+
+        try {
+          if (window.testApiKey) {
+            const success = await window.testApiKey(key, model);
+            if (success) {
+              showTestResult('성공: Gemini API에 정상적으로 연결되었습니다!', 'success');
+            } else {
+              showTestResult('실패: API 호출 결과가 비정상적입니다. 키를 확인해 주세요.', 'error');
+            }
+          } else {
+            showTestResult('오류: API 테스트 모듈이 아직 로드되지 않았습니다.', 'error');
+          }
+        } catch (err) {
+          showTestResult(`실패: ${err.message || err}`, 'error');
+        } finally {
+          btnTestApi.disabled = false;
+          btnTestApi.innerHTML = `<i class="fa-solid fa-circle-check"></i> 연결 테스트`;
+        }
+      });
+
+      function showTestResult(message, type) {
+        settingsTestResult.classList.remove('hidden');
+        settingsTestResult.textContent = message;
+        settingsTestResult.className = 'test-result-message';
+        if (type) {
+          settingsTestResult.classList.add(type);
+        }
+      }
+
+      // 2. Tab Navigation
+      const tabs = document.querySelectorAll('.tab-btn');
+      const panes = document.querySelectorAll('.tab-pane');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const target = tab.dataset.tab;
+
+          tabs.forEach(t => t.classList.remove('active'));
+          panes.forEach(p => p.classList.remove('active'));
+
+          tab.classList.add('active');
+          document.getElementById(target).classList.add('active');
+        });
+      });
+
+      // Character Counter
+      const sentenceInput = document.getElementById('sentence-input');
+      const charCount = document.getElementById('char-count');
+
+      sentenceInput.addEventListener('input', () => {
+        charCount.textContent = sentenceInput.value.length;
+      });
+
+      // Quick Examples
+      const exampleBtns = document.querySelectorAll('.btn-example');
+      exampleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const text = btn.dataset.text;
+          sentenceInput.value = text;
+          charCount.textContent = text.length;
+          // Trigger automatic analysis on example click
+          analyzeCurrentSentence();
+        });
+      });
+
+      // Analyze Button Click
+      const btnAnalyze = document.getElementById('btn-analyze');
+      btnAnalyze.addEventListener('click', analyzeCurrentSentence);
+
+      // Clear Button Click
+      const btnClear = document.getElementById('btn-clear');
+      btnClear.addEventListener('click', () => {
+        sentenceInput.value = '';
+        charCount.textContent = '0';
+        document.getElementById('analysis-result-section').classList.add('hidden');
+        sentenceInput.focus();
+      });
+
+      // Enter key for analysis (Ctrl + Enter)
+      sentenceInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+          e.preventDefault();
+          analyzeCurrentSentence();
+        }
+      });
+
+      // Analysis Execution Function
+      async function analyzeCurrentSentence() {
+        const text = sentenceInput.value.trim();
+        if (!text) {
+          alert('분석할 문장을 입력해주세요.');
+          sentenceInput.focus();
+          return;
+        }
+
+        // Show spinner state on button
+        btnAnalyze.disabled = true;
+        const originalBtnHtml = btnAnalyze.innerHTML;
+        btnAnalyze.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> 분석 중...`;
+
+        try {
+          const result = await analyzeSentiment(text);
+          if (!result) return;
+
+          // Show result section
+          const resultSection = document.getElementById('analysis-result-section');
+          resultSection.classList.remove('hidden');
+          resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+          // Update Score Display
+          const scoreNum = document.getElementById('score-number');
+          const scoreBadge = document.getElementById('score-badge');
+          const scoreDesc = document.getElementById('score-description');
+          const gaugeBar = document.getElementById('gauge-bar');
+
+          const score = result.totalScore;
+          // Format float score for LLM
+          const displayScore = result.isLlm ? score.toFixed(1) : (score > 0 ? `+${score}` : score);
+          scoreNum.textContent = displayScore;
+
+          // Reset classes
+          scoreNum.className = 'score-number';
+          scoreBadge.className = 'badge';
+
+          // Determine gauge position
+          // For LLM: range is -2 to +2
+          // For local: range is -maxExpectedScore to +maxExpectedScore
+          let gaugePercentage;
+          if (result.isLlm) {
+            // -2.0 ~ +2.0 -> 0% ~ 100%
+            gaugePercentage = ((score + 2) / 4) * 100;
+          } else {
+            const maxExpectedScore = Math.max(5, Math.abs(score));
+            gaugePercentage = ((score + maxExpectedScore) / (maxExpectedScore * 2)) * 100;
+          }
+          gaugeBar.style.left = `${Math.min(100, Math.max(0, gaugePercentage))}%`;
+
+          // Classification logic (supports both local and LLM mode scales)
+          const isLlm = result.isLlm;
+          const isStrongPos = isLlm ? (score >= 1.2) : (score > 2);
+          const isPos = isLlm ? (score > 0.2) : (score > 0);
+          const isStrongNeg = isLlm ? (score <= -1.2) : (score < -2);
+          const isNeg = isLlm ? (score < -0.2) : (score < 0);
+
+          if (isStrongPos) {
+            scoreNum.classList.add('pos-strong');
+            scoreBadge.classList.add('pos-strong');
+            scoreBadge.textContent = isLlm ? (result.sentiment || '매우 긍정') : '매우 긍정';
+            scoreDesc.textContent = '문장에서 강한 긍정적 메시지와 감정이 지배적으로 나타납니다. 🎉';
+            gaugeBar.className = 'gauge-bar pos-strong';
+          } else if (isPos) {
+            scoreNum.classList.add('pos');
+            scoreBadge.classList.add('pos');
+            scoreBadge.textContent = isLlm ? (result.sentiment || '긍정') : '긍정';
+            scoreDesc.textContent = '문장에서 밝고 기분 좋은 긍정적 표현들이 감지되었습니다. 🙂';
+            gaugeBar.className = 'gauge-bar pos';
+          } else if (isStrongNeg) {
+            scoreNum.classList.add('neg-strong');
+            scoreBadge.classList.add('neg-strong');
+            scoreBadge.textContent = isLlm ? (result.sentiment || '매우 부정') : '매우 부정';
+            scoreDesc.textContent = '문장에서 강한 부정, 불만, 혹은 분노의 뉘앙스가 짙게 깔려있습니다. 🚨';
+            gaugeBar.className = 'gauge-bar neg-strong';
+          } else if (isNeg) {
+            scoreNum.classList.add('neg');
+            scoreBadge.classList.add('neg');
+            scoreBadge.textContent = isLlm ? (result.sentiment || '부정') : '부정';
+            scoreDesc.textContent = '문장 속에 아쉽거나 슬픈 부정적 어조의 표현들이 섞여있습니다. 😢';
+            gaugeBar.className = 'gauge-bar neg';
+          } else {
+            scoreNum.classList.add('neu');
+            scoreBadge.classList.add('neu');
+            scoreBadge.textContent = isLlm ? (result.sentiment || '중립') : '중립';
+            scoreDesc.textContent = '감성적인 치우침이 없거나 긍정과 부정 표현이 균형 있게 섞여있는 중립 상태입니다. 😐';
+            gaugeBar.className = 'gauge-bar neu';
+          }
+
+          // Handle LLM result card rendering
+          const llmCard = document.getElementById('llm-analysis-card');
+          if (isLlm && result.llm) {
+            llmCard.classList.remove('hidden');
+            document.getElementById('llm-summary-text').textContent = result.llm.summary;
+
+            const llmPhrasesBody = document.getElementById('llm-phrases-body');
+            llmPhrasesBody.innerHTML = '';
+
+            if (!result.llm.keyPhrases || result.llm.keyPhrases.length === 0) {
+              llmPhrasesBody.innerHTML = `<tr><td colspan="3" class="no-data">감지된 핵심 구절이 없습니다.</td></tr>`;
+            } else {
+              result.llm.keyPhrases.forEach(item => {
+                const tr = document.createElement('tr');
+                let polarityClass = 'text-neu';
+                let polarityLabel = '중립';
+                let badgeClass = 'badge neu';
+
+                if (item.polarity > 0.2) {
+                  polarityClass = 'text-pos';
+                  polarityLabel = item.polarity >= 1.2 ? `강한 긍정 (+${item.polarity})` : `긍정 (+${item.polarity})`;
+                  badgeClass = item.polarity >= 1.2 ? 'badge pos-strong' : 'badge pos';
+                } else if (item.polarity < -0.2) {
+                  polarityClass = 'text-neg';
+                  polarityLabel = item.polarity <= -1.2 ? `강한 부정 (${item.polarity})` : `부정 (${item.polarity})`;
+                  badgeClass = item.polarity <= -1.2 ? 'badge neg-strong' : 'badge neg';
+                } else {
+                  polarityLabel = `중립 (${item.polarity})`;
+                }
+
+                tr.innerHTML = `
+                  <td class="word-text"><strong>${escapeHtml(item.phrase)}</strong></td>
+                  <td><span class="${badgeClass} polarity-badge">${polarityLabel}</span></td>
+                  <td>${escapeHtml(item.reason)}</td>
+                `;
+                llmPhrasesBody.appendChild(tr);
+              });
+            }
+          } else {
+            llmCard.classList.add('hidden');
+          }
+
+          // Update Statistics
+          document.getElementById('stat-pos-count').textContent = result.positiveCount;
+          document.getElementById('stat-neg-count').textContent = result.negativeCount;
+          document.getElementById('stat-neu-count').textContent = result.neutralCount;
+          document.getElementById('stat-total-count').textContent = result.matchedCount;
+
+          // Update Highlighting (Kiwi-based dictionary matching highlights)
+          document.getElementById('highlighted-viewer').innerHTML = result.highlightedHtml || '<span class="text-muted">감성 사전에 등록된 단어가 문장에 존재하지 않습니다.</span>';
+
+          // Update Detail Table
+          const tableBody = document.getElementById('detail-table-body');
+          tableBody.innerHTML = '';
+
+          if (result.details.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" class="no-data">감지된 감성 어휘가 없습니다. 일반적인 평서문이거나 신조어/사전에 없는 표현일 수 있습니다.</td></tr>`;
+          } else {
+            result.details.forEach(item => {
+              const tr = document.createElement('tr');
+
+              let typeLabel = '중립';
+              let typeClass = 'badge neu';
+              if (item.polarity > 0) {
+                typeLabel = item.polarity === 2 ? '강한 긍정' : '긍정';
+                typeClass = item.polarity === 2 ? 'badge pos-strong' : 'badge pos';
+              } else if (item.polarity < 0) {
+                typeLabel = item.polarity === -2 ? '강한 부정' : '부정';
+                typeClass = item.polarity === -2 ? 'badge neg-strong' : 'badge neg';
+              }
+
+              const scoreDisplay = item.polarity > 0 ? `+${item.polarity}` : item.polarity;
+
+              const normalizedBadge = item.matchType === 'normalized'
+                ? ` <span class="badge-normalized" title="사전 표기: '${escapeHtml(item.originalDictWord)}'">띄어쓰기 보정</span>`
+                : '';
+              tr.innerHTML = `
+                <td class="word-text"><strong>${escapeHtml(item.word)}</strong>${normalizedBadge}</td>
+                <td><code class="root-code">${escapeHtml(item.word_root)}</code></td>
+                <td><span class="${typeClass}">${typeLabel}</span></td>
+                <td class="score-val ${item.polarity > 0 ? 'text-pos' : (item.polarity < 0 ? 'text-neg' : 'text-neu')}">${scoreDisplay}</td>
+              `;
+              tableBody.appendChild(tr);
+            });
+          }
+        } catch (error) {
+          console.error("감성 분석 실행 오류:", error);
+          alert("감성 분석 실행 중 오류가 발생했습니다: " + error.message);
+        } finally {
+          btnAnalyze.disabled = false;
+          btnAnalyze.innerHTML = originalBtnHtml;
+        }
+      }
+
+      // 3. Dictionary Search Interactions
+      const dictInput = document.getElementById('dict-search-input');
+      const btnSearch = document.getElementById('btn-search-dict');
+      const dictTableBody = document.getElementById('dict-table-body');
+      const searchResultCount = document.getElementById('search-result-count');
+
+      btnSearch.addEventListener('click', executeDictSearch);
+      dictInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          executeDictSearch();
+        }
+      });
+
+      function executeDictSearch() {
+        const query = dictInput.value.trim();
+        if (!query) {
+          alert('검색할 키워드를 입력해 주세요.');
+          dictInput.focus();
+          return;
+        }
+
+        const results = searchDictionary(query);
+        searchResultCount.textContent = results.length;
+        dictTableBody.innerHTML = '';
+
+        if (results.length === 0) {
+          dictTableBody.innerHTML = `<tr><td colspan="4" class="no-data">사전에서 '${escapeHtml(query)}'에 해당하는 단어를 찾지 못했습니다.</td></tr>`;
+          return;
+        }
+
+        // Display top 100 search results for performance safety
+        const displayedResults = results.slice(0, 100);
+        displayedResults.forEach(item => {
+          const tr = document.createElement('tr');
+
+          let typeLabel = '중립';
+          let typeClass = 'badge neu';
+          if (item.polarity > 0) {
+            typeLabel = item.polarity === 2 ? '강한 긍정' : '긍정';
+            typeClass = item.polarity === 2 ? 'badge pos-strong' : 'badge pos';
+          } else if (item.polarity < 0) {
+            typeLabel = item.polarity === -2 ? '강한 부정' : '부정';
+            typeClass = item.polarity === -2 ? 'badge neg-strong' : 'badge neg';
+          }
+
+          const scoreDisplay = item.polarity > 0 ? `+${item.polarity}` : item.polarity;
+
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(item.word)}</strong></td>
+            <td><code class="root-code">${escapeHtml(item.word_root)}</code></td>
+            <td class="score-val ${item.polarity > 0 ? 'text-pos' : (item.polarity < 0 ? 'text-neg' : 'text-neu')}">${scoreDisplay}</td>
+            <td><span class="${typeClass}">${typeLabel}</span></td>
+          `;
+          dictTableBody.appendChild(tr);
+        });
+
+        if (results.length > 100) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="4" class="no-data text-muted">결과가 너무 많아 상위 100개만 표시합니다. (전체 결과: ${results.length}개)</td>`;
+          dictTableBody.appendChild(tr);
+        }
+      }
+    });
+  </script>
+
+  <!-- API Settings Panel (Slide-in) -->
+  <div id="settings-panel" class="settings-panel">
+    <div class="settings-header">
+      <h3><i class="fa-solid fa-gear"></i> Gemini API 설정</h3>
+      <button id="btn-close-settings" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="settings-body">
+      <div class="form-group">
+        <label for="settings-api-key">Gemini API Key</label>
+        <div class="input-with-icon">
+          <i class="fa-solid fa-key input-icon"></i>
+          <input type="password" id="settings-api-key" placeholder="AIzaSy...">
+        </div>
+        <p class="help-text">입력하신 API 키는 브라우저의 로컬 저장소(localStorage)에 안전하게 저장됩니다.</p>
+      </div>
+      <div class="form-group">
+        <label for="settings-model">Gemini Model</label>
+        <div class="select-wrapper">
+          <select id="settings-model">
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (최고속/추천)</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash (균형)</option>
+            <option value="gemini-3.5-flash">gemini-3.5-flash (정밀)</option>
+            <option value="gemini-3.5-pro">gemini-3.5-pro (유료)</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button id="btn-test-api" class="btn-secondary"><i class="fa-solid fa-circle-check"></i> 연결 테스트</button>
+        <button id="btn-save-settings" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> 저장</button>
+      </div>
+      <div id="settings-test-result" class="test-result-message hidden"></div>
+    </div>
+  </div>
+  <div id="settings-overlay" class="settings-overlay"></div>
+</body>
+
+</html>
